@@ -12,44 +12,23 @@ public class CheckMatches {
         System.out.println("         THEPITCH - MATCH CHECKER");
         System.out.println("=".repeat(60));
         
-        // Initialize database
         DatabaseConnection db = DatabaseConnection.getInstance();
         DataSyncService syncService = new DataSyncService();
         
-        // Show current IST time
+        // Show current time
         System.out.println("\n📍 Current IST Time: " + syncService.getCurrentISTTime());
+        System.out.println("📍 Current UTC Time: " + syncService.getCurrentUTCTime());
         
-        // Print database stats
+        // Show statistics
         syncService.printStats();
         
-        // Print today's matches
+        // Show recent matches
         System.out.println("\n" + "=".repeat(60));
-        syncService.printTodayMatches();
+        syncService.showRecentMatches(5);
         
-        // Print tomorrow's matches
+        // Show upcoming matches
         System.out.println("\n" + "=".repeat(60));
-        System.out.println("   📅 TOMORROW'S MATCHES");
-        System.out.println("   " + "-".repeat(50));
-        
-        List<Match> tomorrowMatches = syncService.getTomorrowMatches();
-        if (tomorrowMatches.isEmpty()) {
-            System.out.println("   No matches scheduled for tomorrow");
-        } else {
-            SimpleDateFormat timeFormat = new SimpleDateFormat("hh:mm a");
-            timeFormat.setTimeZone(TimeZone.getTimeZone("Asia/Kolkata"));
-            
-            for (Match match : tomorrowMatches) {
-                String time = timeFormat.format(match.getMatchDate());
-                System.out.printf("   • %-25s vs %-25s [%s]%n", 
-                    truncate(match.getHomeTeam().getTeamName(), 25),
-                    truncate(match.getAwayTeam().getTeamName(), 25),
-                    time);
-            }
-        }
-        
-        // Print matches for next 3 days
-        System.out.println("\n" + "=".repeat(60));
-        syncService.printUpcomingMatches(3);
+        syncService.showUpcomingMatches();
         
         System.out.println("\n" + "=".repeat(60));
         System.out.println("✅ Check complete!");
@@ -58,10 +37,5 @@ public class CheckMatches {
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             db.closeConnection();
         }));
-    }
-    
-    private static String truncate(String str, int length) {
-        if (str.length() <= length) return str;
-        return str.substring(0, length - 3) + "...";
     }
 }

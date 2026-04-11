@@ -15,7 +15,7 @@ import java.util.concurrent.TimeUnit;
  * Free tier: 10 requests/minute, current season only
  * 
  * @author ThePitch Team
- * @version 2.0
+ * @version 2.2
  */
 public class APIClient {
     
@@ -33,6 +33,9 @@ public class APIClient {
     // Cache for rate limit headers
     private int remainingRequests = 10;
     private long resetTime = 0;
+    
+    // Track if we've printed scores already for a league
+    private boolean scorePrintingEnabled = true;
     
     public APIClient() {
         // Configure HTTP client with timeouts
@@ -145,12 +148,6 @@ public class APIClient {
     
     /**
      * Fetch matches for a specific competition (e.g., PL = Premier League)
-     * Competition codes:
-     * - PL: Premier League (England)
-     * - PD: La Liga (Spain)
-     * - SA: Serie A (Italy)
-     * - BL1: Bundesliga (Germany)
-     * - FL1: Ligue 1 (France)
      */
     public JsonObject fetchCompetitionMatches(String competitionCode) throws Exception {
         String url = BASE_URL + "competitions/" + competitionCode + "/matches";
@@ -256,7 +253,7 @@ public class APIClient {
     }
     
     /**
-     * Parse matches from API response into Match objects
+     * Parse matches from API response into Match objects - FIXED to handle all status types
      */
     public List<Match> parseMatches(JsonObject response, int leagueId) {
         List<Match> matches = new ArrayList<>();
@@ -266,6 +263,9 @@ public class APIClient {
             return matches;
         }
         
+        int scoreCount = 0;
+        int scheduledCount = 0;
+        
         for (JsonElement element : matchesArray) {
             JsonObject matchObj = element.getAsJsonObject();
             
@@ -273,7 +273,7 @@ public class APIClient {
                 int matchId = matchObj.get("id").getAsInt();
                 String dateStr = matchObj.get("utcDate").getAsString();
                 Date matchDate = apiDateFormat.parse(dateStr);
-                String status = matchObj.get("status").getAsString();
+                String apiStatus = matchObj.get("status").getAsString();
                 
                 // Parse teams
                 JsonObject homeTeamObj = matchObj.getAsJsonObject("homeTeam");
@@ -294,20 +294,79 @@ public class APIClient {
                 awayTeam.setLeagueId(leagueId);
                 
                 Match match = new Match(matchId, matchDate, homeTeam, awayTeam, leagueId);
-                match.setStatus(status);
                 
-                // Parse score if available
+                // ========== FIX: Handle all status types properly ==========
+                // Possible statuses from API:
+                // - SCHEDULED: match scheduled for future
+                // - TIMED: match scheduled with confirmed time
+                // - LIVE / IN_PLAY: match in progress
+                // - PAUSED: match temporarily stopped
+                // - FINISHED: match completed
+                // - POSTPONED: match postponed
+                // - CANCELLED: match cancelled
+                
+                switch (apiStatus) {
+                    case "FINISHED":
+                        match.setStatus("FINISHED");
+                        break;
+                    case "LIVE":
+                    case "IN_PLAY":
+                        match.setStatus("LIVE");
+                        break;
+                    case "TIMED":
+                    case "SCHEDULED":
+                        match.setStatus("SCHEDULED");
+                        scheduledCount++;
+                        break;
+                    case "POSTPONED":
+                        match.setStatus("POSTPONED");
+                        break;
+                    case "CANCELLED":
+                        match.setStatus("CANCELLED");
+                        break;
+                    default:
+                        match.setStatus(apiStatus);
+                }
+                
+                // Parse scores
                 JsonObject scoreObj = matchObj.getAsJsonObject("score");
                 if (scoreObj != null) {
+                    // Try fullTime first (final score)
                     JsonObject fullTimeObj = scoreObj.getAsJsonObject("fullTime");
-                    if (fullTimeObj != null && !fullTimeObj.get("home").isJsonNull()) {
-                        match.setHomeScore(fullTimeObj.get("home").getAsInt());
-                        match.setAwayScore(fullTimeObj.get("away").getAsInt());
+                    if (fullTimeObj != null) {
+                        if (!fullTimeObj.get("home").isJsonNull()) {
+                            match.setHomeScore(fullTimeObj.get("home").getAsInt());
+                        }
+                        if (!fullTimeObj.get("away").isJsonNull()) {
+                            match.setAwayScore(fullTimeObj.get("away").getAsInt());
+                        }
                     }
                     
-                    // Also check half-time scores if needed
-                    JsonObject halfTimeObj = scoreObj.getAsJsonObject("halfTime");
-                    // (Can be extended for more detailed stats)
+                    // If fullTime is null/empty, try halfTime
+                    if (match.getHomeScore() == null && match.getAwayScore() == null) {
+                        JsonObject halfTimeObj = scoreObj.getAsJsonObject("halfTime");
+                        if (halfTimeObj != null) {
+                            if (!halfTimeObj.get("home").isJsonNull()) {
+                                match.setHomeScore(halfTimeObj.get("home").getAsInt());
+                            }
+                            if (!halfTimeObj.get("away").isJsonNull()) {
+                                match.setAwayScore(halfTimeObj.get("away").getAsInt());
+                            }
+                        }
+                    }
+                    
+                    // If we have scores, mark as FINISHED (override status)
+                    if (match.getHomeScore() != null && match.getAwayScore() != null) {
+                        match.setStatus("FINISHED");
+                        scoreCount++;
+                        
+                        // Print first 10 scores as sample
+                        if (scoreCount <= 10 && scorePrintingEnabled) {
+                            System.out.println("      📊 Score: " + homeTeam.getTeamName() + " " + 
+                                match.getHomeScore() + " - " + match.getAwayScore() + " " + 
+                                awayTeam.getTeamName());
+                        }
+                    }
                 }
                 
                 matches.add(match);
@@ -316,6 +375,14 @@ public class APIClient {
                 System.err.println("Warning: Error parsing match: " + e.getMessage());
             }
         }
+        
+        if (scoreCount > 0 && scorePrintingEnabled) {
+            System.out.println("      📊 Total " + scoreCount + " matches with scores found");
+        }
+        if (scheduledCount > 0) {
+            System.out.println("      ⏰ Total " + scheduledCount + " scheduled/upcoming matches found");
+        }
+        scorePrintingEnabled = false; // Only print once per sync
         
         return matches;
     }
@@ -326,9 +393,7 @@ public class APIClient {
     public List<Team> parseTeams(JsonObject response, int leagueId) {
         List<Team> teams = new ArrayList<>();
         
-        JsonObject competitionObj = response.getAsJsonObject("competition");
         JsonArray teamsArray = response.getAsJsonArray("teams");
-        
         if (teamsArray == null || teamsArray.size() == 0) {
             return teams;
         }
@@ -415,5 +480,12 @@ public class APIClient {
      */
     public String getRateLimitStatus() {
         return remainingRequests + " requests remaining this minute";
+    }
+    
+    /**
+     * Reset score printing flag (for new sync sessions)
+     */
+    public void resetScorePrinting() {
+        this.scorePrintingEnabled = true;
     }
 }

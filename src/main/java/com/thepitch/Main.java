@@ -2,33 +2,45 @@ package com.thepitch;
 
 import com.thepitch.dao.DatabaseConnection;
 import com.thepitch.service.DataSyncService;
-import com.thepitch.model.Match;
-import java.util.List;
+import java.util.Scanner;
 
 public class Main {
     public static void main(String[] args) {
-        System.out.println("========================================");
-        System.out.println("         THEPITCH - FOOTBALL ANALYTICS    ");
-        System.out.println("========================================");
+        System.out.println("\n========================================");
+        System.out.println("         THEPITCH - PREMIER LEAGUE        ");
+        System.out.println("========================================\n");
         
-        // Initialize database
         DatabaseConnection db = DatabaseConnection.getInstance();
-        
-        // Initialize services
         DataSyncService syncService = new DataSyncService();
         
-        // Show current time
-        System.out.println("\n📍 Current IST Time: " + syncService.getCurrentISTTime());
+        System.out.println("📍 " + syncService.getCurrentISTTime());
         
-        // Print database stats
-        syncService.printStats();
+        Scanner scanner = new Scanner(System.in);
         
-        // Print upcoming matches for next 3 days
-        syncService.printUpcomingMatches(3);
+        System.out.println("\n📥 OPTIONS:");
+        System.out.println("   1. Sync Premier League data from API");
+        System.out.println("   2. Show LAST 5 MATCHWEEKS (with scores)");
+        System.out.println("   3. Show UPCOMING MATCHES");
+        System.out.println("   4. Show Statistics");
+        System.out.print("\nChoose option (1-4): ");
+        
+        int choice = scanner.nextInt();
+        
+        if (choice == 1) {
+            syncService.syncPremierLeague();
+        } else if (choice == 2) {
+            syncService.printStats();
+            syncService.showRecentMatches(5);
+        } else if (choice == 3) {
+            syncService.showUpcomingMatches();
+        } else if (choice == 4) {
+            syncService.printStats();
+        }
         
         System.out.println("\n✅ ThePitch is ready!");
-        System.out.println("========================================");
+        System.out.println("========================================\n");
         
+        scanner.close();
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             db.closeConnection();
         }));

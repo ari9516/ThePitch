@@ -8,25 +8,27 @@ import java.util.*;
 
 public class TestMatches {
     public static void main(String[] args) {
-        System.out.println("========================================");
-        System.out.println("     CHECKING UPCOMING MATCHES          ");
-        System.out.println("========================================\n");
+        System.out.println("\n" + "=".repeat(60));
+        System.out.println("     THEPITCH - QUICK MATCH TEST");
+        System.out.println("=".repeat(60));
         
         DatabaseConnection db = DatabaseConnection.getInstance();
         DataSyncService syncService = new DataSyncService();
         
         SimpleDateFormat istFormat = new SimpleDateFormat("EEEE, MMMM dd, yyyy");
-        istFormat.setTimeZone(TimeZone.getTimeZone("IST"));
+        istFormat.setTimeZone(TimeZone.getTimeZone("Asia/Kolkata"));
         
-        System.out.println("Current IST Date: " + istFormat.format(new Date()));
-        System.out.println("========================================\n");
+        System.out.println("\n📍 Current IST Date: " + istFormat.format(new Date()));
+        System.out.println("📍 Current UTC Date: " + syncService.getCurrentUTCTime());
+        System.out.println("=".repeat(60));
         
-        // Check matches for next 3 days
-        syncService.printUpcomingMatches(3);
+        // Show just the last 3 matchweeks (quick view)
+        System.out.println("\n📊 QUICK VIEW - LAST 3 MATCHWEEKS");
+        syncService.showRecentMatches(3);
         
-        System.out.println("\n========================================");
-        System.out.println("To sync fresh data, run: mvn exec:java");
-        System.out.println("========================================");
+        System.out.println("\n" + "=".repeat(60));
+        System.out.println("💡 To sync fresh data, run: mvn exec:java and choose option 1");
+        System.out.println("=".repeat(60));
         
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             db.closeConnection();

@@ -9,12 +9,13 @@ import java.util.Date;
  * Contains information about teams, date, score, and status.
  * 
  * @author ThePitch Team
- * @version 1.0
+ * @version 1.1
  */
 public class Match implements Serializable {
     
     private static final long serialVersionUID = 1L;
     private static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("dd/MM/yyyy HH:mm");
+    private static final SimpleDateFormat TIME_FORMAT = new SimpleDateFormat("hh:mm a");
     
     // Core properties
     private int matchId;           // Unique match identifier (from API)
@@ -205,6 +206,18 @@ public class Match implements Serializable {
     }
     
     /**
+     * Gets formatted time only
+     * 
+     * @return Time in format "hh:mm a"
+     */
+    public String getFormattedTime() {
+        if (matchDate == null) {
+            return "TBD";
+        }
+        return TIME_FORMAT.format(matchDate);
+    }
+    
+    /**
      * Gets formatted score string
      * 
      * @return String like "2-1" or "vs" if not played
@@ -214,6 +227,21 @@ public class Match implements Serializable {
             return homeScore + " - " + awayScore;
         }
         return "vs";
+    }
+    
+    /**
+     * Gets formatted display string for match listing
+     * Includes score for finished matches
+     * 
+     * @return Formatted match string with score if available
+     */
+    public String getDisplayString() {
+        if (isFinished() && homeScore != null && awayScore != null) {
+            return String.format("%s %d - %d %s", 
+                homeTeam.getTeamName(), homeScore, awayScore, awayTeam.getTeamName());
+        } else {
+            return String.format("%s vs %s", homeTeam.getTeamName(), awayTeam.getTeamName());
+        }
     }
     
     /**
@@ -236,6 +264,20 @@ public class Match implements Serializable {
             default:
                 return "❓";
         }
+    }
+    
+    /**
+     * Gets detailed status with score for finished matches
+     */
+    public String getDetailedStatus() {
+        if (isFinished() && homeScore != null && awayScore != null) {
+            return "✅ " + homeScore + "-" + awayScore;
+        } else if (isLive()) {
+            return "🟢 LIVE";
+        } else if (isScheduled()) {
+            return "⏰ " + getFormattedTime();
+        }
+        return getStatusEmoji();
     }
     
     /**
@@ -262,13 +304,39 @@ public class Match implements Serializable {
         return false;
     }
     
+    /**
+     * Gets a one-line summary for console display
+     */
+    public String getSummary() {
+        if (isFinished() && homeScore != null && awayScore != null) {
+            return String.format("[%s] %s %d-%d %s", 
+                getFormattedDate(), 
+                homeTeam.getTeamName(), 
+                homeScore, 
+                awayScore, 
+                awayTeam.getTeamName());
+        } else {
+            return String.format("[%s] %s vs %s (%s)", 
+                getFormattedDate(), 
+                homeTeam.getTeamName(), 
+                awayTeam.getTeamName(),
+                getStatusEmoji());
+        }
+    }
+    
     @Override
     public String toString() {
-        return String.format("%s vs %s | %s | %s", 
-            homeTeam.getTeamName(), 
-            awayTeam.getTeamName(), 
-            getFormattedDate(),
-            getStatusEmoji());
+        if (isFinished() && homeScore != null && awayScore != null) {
+            return String.format("%s %d - %d %s | %s", 
+                homeTeam.getTeamName(), homeScore, awayScore, 
+                awayTeam.getTeamName(), getFormattedDate());
+        } else {
+            return String.format("%s vs %s | %s | %s", 
+                homeTeam.getTeamName(), 
+                awayTeam.getTeamName(), 
+                getFormattedDate(),
+                getStatusEmoji());
+        }
     }
     
     @Override
