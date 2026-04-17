@@ -119,7 +119,6 @@ public class MatchDAO {
             try {
                 if (rs != null) rs.close();
                 if (stmt != null) stmt.close();
-                // DON'T close connection here - leave it for the pool
             } catch (SQLException e) {
                 System.err.println("Error closing resources: " + e.getMessage());
             }
@@ -127,7 +126,7 @@ public class MatchDAO {
         return matches;
     }
     
-    // Original getAllMatches - kept for compatibility but uses safe version internally
+    // Original getAllMatches - kept for compatibility
     public List<Match> getAllMatches() {
         return getAllMatchesSafe();
     }
@@ -353,6 +352,41 @@ public class MatchDAO {
             try {
                 if (rs != null) rs.close();
                 if (stmt != null) stmt.close();
+            } catch (SQLException e) {
+                System.err.println("Error closing resources: " + e.getMessage());
+            }
+        }
+        return matches;
+    }
+    
+    /**
+     * Get upcoming matches with custom limit
+     */
+    public List<Match> getUpcomingMatches(int limit) {
+        List<Match> matches = new ArrayList<>();
+        String sql = "SELECT * FROM matches WHERE date(match_date) >= date('now') AND status = 'SCHEDULED' ORDER BY match_date LIMIT ?";
+        Connection conn = null;
+        PreparedStatement pstmt = null;
+        ResultSet rs = null;
+        
+        try {
+            conn = db.getConnection();
+            pstmt = conn.prepareStatement(sql);
+            pstmt.setInt(1, limit);
+            rs = pstmt.executeQuery();
+            
+            while (rs.next()) {
+                Match match = buildMatchFromResultSet(rs);
+                if (match != null) {
+                    matches.add(match);
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Error getting upcoming matches with limit: " + e.getMessage());
+        } finally {
+            try {
+                if (rs != null) rs.close();
+                if (pstmt != null) pstmt.close();
             } catch (SQLException e) {
                 System.err.println("Error closing resources: " + e.getMessage());
             }

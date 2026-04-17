@@ -90,6 +90,71 @@ public class DataSyncService {
     }
     
     /**
+     * Get upcoming matches (for Main.java prediction feature)
+     */
+    public List<Match> getUpcomingMatches() {
+        return matchDAO.getUpcomingMatches();
+    }
+    
+    /**
+     * Get upcoming matches with custom limit
+     */
+    public List<Match> getUpcomingMatches(int limit) {
+        return matchDAO.getUpcomingMatches(limit);
+    }
+    
+    /**
+     * Get matches for next N days
+     */
+    public List<Match> getMatchesForNextDays(int days) {
+        List<Match> allMatches = matchDAO.getAllMatchesSafe();
+        List<Match> upcomingMatches = new ArrayList<>();
+        
+        Calendar cal = Calendar.getInstance();
+        cal.setTime(new Date());
+        cal.add(Calendar.DAY_OF_YEAR, days);
+        Date endDate = cal.getTime();
+        
+        String todayIST = istDateFormat.format(new Date());
+        String endDateIST = istDateFormat.format(endDate);
+        
+        for (Match match : allMatches) {
+            if (match.getMatchDate() != null && match.isScheduled()) {
+                String matchDateIST = istDateFormat.format(match.getMatchDate());
+                if (matchDateIST.compareTo(todayIST) >= 0 && 
+                    matchDateIST.compareTo(endDateIST) <= 0) {
+                    upcomingMatches.add(match);
+                }
+            }
+        }
+        
+        upcomingMatches.sort(Comparator.comparing(Match::getMatchDate));
+        return upcomingMatches;
+    }
+    
+    /**
+     * Get today's matches
+     */
+    public List<Match> getTodayMatches() {
+        List<Match> allMatches = matchDAO.getAllMatchesSafe();
+        List<Match> todayMatches = new ArrayList<>();
+        
+        String todayIST = istDateFormat.format(new Date());
+        
+        for (Match match : allMatches) {
+            if (match.getMatchDate() != null && match.isScheduled()) {
+                String matchDateIST = istDateFormat.format(match.getMatchDate());
+                if (matchDateIST.equals(todayIST)) {
+                    todayMatches.add(match);
+                }
+            }
+        }
+        
+        todayMatches.sort(Comparator.comparing(Match::getMatchDate));
+        return todayMatches;
+    }
+    
+    /**
      * Show recent matches with scores (last N matchweeks)
      */
     public void showRecentMatches(int numberOfMatchweeks) {
