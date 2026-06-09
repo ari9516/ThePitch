@@ -17,10 +17,8 @@ public class TeamDAO {
     
     public void saveTeam(Team team) {
         String sql = "INSERT OR REPLACE INTO teams (team_id, team_name, league_id, elo_rating, last_updated) VALUES (?, ?, ?, ?, ?)";
-        
         Connection conn = null;
         PreparedStatement pstmt = null;
-        
         try {
             conn = db.getConnection();
             pstmt = conn.prepareStatement(sql);
@@ -33,18 +31,12 @@ public class TeamDAO {
         } catch (SQLException e) {
             System.err.println("Error saving team " + team.getTeamName() + ": " + e.getMessage());
         } finally {
-            try {
-                if (pstmt != null) pstmt.close();
-            } catch (SQLException e) {
-                System.err.println("Error closing statement: " + e.getMessage());
-            }
+            try { if (pstmt != null) pstmt.close(); } catch (SQLException e) { }
         }
     }
     
     public void saveTeams(List<Team> teams) {
-        for (Team team : teams) {
-            saveTeam(team);
-        }
+        for (Team team : teams) saveTeam(team);
     }
     
     // ========== GET METHODS ==========
@@ -55,25 +47,16 @@ public class TeamDAO {
         Connection conn = null;
         PreparedStatement pstmt = null;
         ResultSet rs = null;
-        
         try {
             conn = db.getConnection();
             pstmt = conn.prepareStatement(sql);
             pstmt.setInt(1, teamId);
             rs = pstmt.executeQuery();
-            
-            if (rs.next()) {
-                team = buildTeamFromResultSet(rs);
-            }
+            if (rs.next()) team = buildTeamFromResultSet(rs);
         } catch (SQLException e) {
             System.err.println("Error getting team by ID: " + e.getMessage());
         } finally {
-            try {
-                if (rs != null) rs.close();
-                if (pstmt != null) pstmt.close();
-            } catch (SQLException e) {
-                System.err.println("Error closing resources: " + e.getMessage());
-            }
+            try { if (rs != null) rs.close(); if (pstmt != null) pstmt.close(); } catch (SQLException e) { }
         }
         return team;
     }
@@ -84,25 +67,16 @@ public class TeamDAO {
         Connection conn = null;
         PreparedStatement pstmt = null;
         ResultSet rs = null;
-        
         try {
             conn = db.getConnection();
             pstmt = conn.prepareStatement(sql);
             pstmt.setString(1, teamName);
             rs = pstmt.executeQuery();
-            
-            if (rs.next()) {
-                team = buildTeamFromResultSet(rs);
-            }
+            if (rs.next()) team = buildTeamFromResultSet(rs);
         } catch (SQLException e) {
             System.err.println("Error getting team by name: " + e.getMessage());
         } finally {
-            try {
-                if (rs != null) rs.close();
-                if (pstmt != null) pstmt.close();
-            } catch (SQLException e) {
-                System.err.println("Error closing resources: " + e.getMessage());
-            }
+            try { if (rs != null) rs.close(); if (pstmt != null) pstmt.close(); } catch (SQLException e) { }
         }
         return team;
     }
@@ -113,29 +87,19 @@ public class TeamDAO {
         Connection conn = null;
         Statement stmt = null;
         ResultSet rs = null;
-        
         try {
             conn = db.getConnection();
             stmt = conn.createStatement();
             rs = stmt.executeQuery(sql);
-            
-            while (rs.next()) {
-                teams.add(buildTeamFromResultSet(rs));
-            }
+            while (rs.next()) teams.add(buildTeamFromResultSet(rs));
         } catch (SQLException e) {
             System.err.println("Error getting all teams: " + e.getMessage());
         } finally {
-            try {
-                if (rs != null) rs.close();
-                if (stmt != null) stmt.close();
-            } catch (SQLException e) {
-                System.err.println("Error closing resources: " + e.getMessage());
-            }
+            try { if (rs != null) rs.close(); if (stmt != null) stmt.close(); } catch (SQLException e) { }
         }
         return teams;
     }
     
-    // Safe version with proper resource management
     public List<Team> getAllTeamsSafe() {
         return getAllTeams();
     }
@@ -146,25 +110,16 @@ public class TeamDAO {
         Connection conn = null;
         PreparedStatement pstmt = null;
         ResultSet rs = null;
-        
         try {
             conn = db.getConnection();
             pstmt = conn.prepareStatement(sql);
             pstmt.setInt(1, leagueId);
             rs = pstmt.executeQuery();
-            
-            while (rs.next()) {
-                teams.add(buildTeamFromResultSet(rs));
-            }
+            while (rs.next()) teams.add(buildTeamFromResultSet(rs));
         } catch (SQLException e) {
             System.err.println("Error getting teams by league: " + e.getMessage());
         } finally {
-            try {
-                if (rs != null) rs.close();
-                if (pstmt != null) pstmt.close();
-            } catch (SQLException e) {
-                System.err.println("Error closing resources: " + e.getMessage());
-            }
+            try { if (rs != null) rs.close(); if (pstmt != null) pstmt.close(); } catch (SQLException e) { }
         }
         return teams;
     }
@@ -175,25 +130,16 @@ public class TeamDAO {
         Connection conn = null;
         PreparedStatement pstmt = null;
         ResultSet rs = null;
-        
         try {
             conn = db.getConnection();
             pstmt = conn.prepareStatement(sql);
             pstmt.setInt(1, limit);
             rs = pstmt.executeQuery();
-            
-            while (rs.next()) {
-                teams.add(buildTeamFromResultSet(rs));
-            }
+            while (rs.next()) teams.add(buildTeamFromResultSet(rs));
         } catch (SQLException e) {
             System.err.println("Error getting top rated teams: " + e.getMessage());
         } finally {
-            try {
-                if (rs != null) rs.close();
-                if (pstmt != null) pstmt.close();
-            } catch (SQLException e) {
-                System.err.println("Error closing resources: " + e.getMessage());
-            }
+            try { if (rs != null) rs.close(); if (pstmt != null) pstmt.close(); } catch (SQLException e) { }
         }
         return teams;
     }
@@ -204,7 +150,6 @@ public class TeamDAO {
         String sql = "UPDATE teams SET elo_rating = ?, last_updated = datetime('now') WHERE team_id = ?";
         Connection conn = null;
         PreparedStatement pstmt = null;
-        
         try {
             conn = db.getConnection();
             pstmt = conn.prepareStatement(sql);
@@ -214,19 +159,19 @@ public class TeamDAO {
         } catch (SQLException e) {
             System.err.println("Error updating ELO rating: " + e.getMessage());
         } finally {
-            try {
-                if (pstmt != null) pstmt.close();
-            } catch (SQLException e) {
-                System.err.println("Error closing statement: " + e.getMessage());
-            }
+            try { if (pstmt != null) pstmt.close(); } catch (SQLException e) { }
         }
+    }
+
+    // ← NEW: called by Main.java auto ELO recalc after sync
+    public void updateTeamElo(int teamId, double newElo) {
+        updateEloRating(teamId, (int) Math.round(newElo));
     }
     
     public void updateTeamName(int teamId, String newName) {
         String sql = "UPDATE teams SET team_name = ? WHERE team_id = ?";
         Connection conn = null;
         PreparedStatement pstmt = null;
-        
         try {
             conn = db.getConnection();
             pstmt = conn.prepareStatement(sql);
@@ -236,11 +181,7 @@ public class TeamDAO {
         } catch (SQLException e) {
             System.err.println("Error updating team name: " + e.getMessage());
         } finally {
-            try {
-                if (pstmt != null) pstmt.close();
-            } catch (SQLException e) {
-                System.err.println("Error closing statement: " + e.getMessage());
-            }
+            try { if (pstmt != null) pstmt.close(); } catch (SQLException e) { }
         }
     }
     
@@ -250,7 +191,6 @@ public class TeamDAO {
         String sql = "DELETE FROM teams WHERE team_id = ?";
         Connection conn = null;
         PreparedStatement pstmt = null;
-        
         try {
             conn = db.getConnection();
             pstmt = conn.prepareStatement(sql);
@@ -259,11 +199,7 @@ public class TeamDAO {
         } catch (SQLException e) {
             System.err.println("Error deleting team: " + e.getMessage());
         } finally {
-            try {
-                if (pstmt != null) pstmt.close();
-            } catch (SQLException e) {
-                System.err.println("Error closing statement: " + e.getMessage());
-            }
+            try { if (pstmt != null) pstmt.close(); } catch (SQLException e) { }
         }
     }
     
@@ -271,7 +207,6 @@ public class TeamDAO {
         String sql = "DELETE FROM teams";
         Connection conn = null;
         Statement stmt = null;
-        
         try {
             conn = db.getConnection();
             stmt = conn.createStatement();
@@ -280,11 +215,7 @@ public class TeamDAO {
         } catch (SQLException e) {
             System.err.println("Error deleting all teams: " + e.getMessage());
         } finally {
-            try {
-                if (stmt != null) stmt.close();
-            } catch (SQLException e) {
-                System.err.println("Error closing statement: " + e.getMessage());
-            }
+            try { if (stmt != null) stmt.close(); } catch (SQLException e) { }
         }
     }
     
@@ -295,7 +226,6 @@ public class TeamDAO {
         Connection conn = null;
         Statement stmt = null;
         ResultSet rs = null;
-        
         try {
             conn = db.getConnection();
             stmt = conn.createStatement();
@@ -305,12 +235,7 @@ public class TeamDAO {
             System.err.println("Error getting team count: " + e.getMessage());
             return 0;
         } finally {
-            try {
-                if (rs != null) rs.close();
-                if (stmt != null) stmt.close();
-            } catch (SQLException e) {
-                System.err.println("Error closing resources: " + e.getMessage());
-            }
+            try { if (rs != null) rs.close(); if (stmt != null) stmt.close(); } catch (SQLException e) { }
         }
     }
     
@@ -319,7 +244,6 @@ public class TeamDAO {
         Connection conn = null;
         PreparedStatement pstmt = null;
         ResultSet rs = null;
-        
         try {
             conn = db.getConnection();
             pstmt = conn.prepareStatement(sql);
@@ -330,12 +254,7 @@ public class TeamDAO {
             System.err.println("Error getting team count by league: " + e.getMessage());
             return 0;
         } finally {
-            try {
-                if (rs != null) rs.close();
-                if (pstmt != null) pstmt.close();
-            } catch (SQLException e) {
-                System.err.println("Error closing resources: " + e.getMessage());
-            }
+            try { if (rs != null) rs.close(); if (pstmt != null) pstmt.close(); } catch (SQLException e) { }
         }
     }
     
@@ -346,7 +265,6 @@ public class TeamDAO {
         Connection conn = null;
         PreparedStatement pstmt = null;
         ResultSet rs = null;
-        
         try {
             conn = db.getConnection();
             pstmt = conn.prepareStatement(sql);
@@ -357,12 +275,7 @@ public class TeamDAO {
             System.err.println("Error checking team existence: " + e.getMessage());
             return false;
         } finally {
-            try {
-                if (rs != null) rs.close();
-                if (pstmt != null) pstmt.close();
-            } catch (SQLException e) {
-                System.err.println("Error closing resources: " + e.getMessage());
-            }
+            try { if (rs != null) rs.close(); if (pstmt != null) pstmt.close(); } catch (SQLException e) { }
         }
     }
     
@@ -388,26 +301,19 @@ public class TeamDAO {
         String sql = "UPDATE teams SET elo_rating = ?, last_updated = datetime('now') WHERE team_id = ?";
         Connection conn = null;
         PreparedStatement pstmt = null;
-        
         try {
             conn = db.getConnection();
             pstmt = conn.prepareStatement(sql);
-            
             for (java.util.Map.Entry<Integer, Integer> entry : ratingUpdates.entrySet()) {
                 pstmt.setInt(1, entry.getValue());
                 pstmt.setInt(2, entry.getKey());
                 pstmt.addBatch();
             }
-            
             pstmt.executeBatch();
         } catch (SQLException e) {
             System.err.println("Error bulk updating ELO ratings: " + e.getMessage());
         } finally {
-            try {
-                if (pstmt != null) pstmt.close();
-            } catch (SQLException e) {
-                System.err.println("Error closing statement: " + e.getMessage());
-            }
+            try { if (pstmt != null) pstmt.close(); } catch (SQLException e) { }
         }
     }
 }
