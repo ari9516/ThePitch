@@ -67,10 +67,10 @@ public class Main {
                     syncService.showRecentMatches(5);
                     break;
                 case 3:
-                    syncService.showUpcomingMatches();
+                    showUpcomingFixtures(syncService);
                     break;
                 case 4:
-                    syncService.printStats();
+                    showTeamStats(matchDAO, teamDAO, scanner);
                     break;
                 case 5:
                     generateEnhancedPrediction(syncService, matchDAO, teamDAO, scanner);
@@ -122,6 +122,237 @@ public class Main {
         System.out.println("   10. [ADMIN] Archive season / new season setup");
         System.out.println("   ─────────────────────────────────────");
         System.out.println("   11. Exit");
+    }
+
+    // ── Option 3: Upcoming Fixtures ───────────────────────────────────────────
+    private static void showUpcomingFixtures(DataSyncService syncService) {
+        System.out.println("\n📅 UPCOMING MATCHES — " + CURRENT_SEASON);
+        System.out.println("=".repeat(60));
+
+        List<com.thepitch.model.Match> upcoming = syncService.getUpcomingMatches();
+
+        if (upcoming == null || upcoming.isEmpty()) {
+            System.out.println();
+            System.out.println("   No upcoming fixtures found.");
+            System.out.println();
+            System.out.println("   This is expected if:");
+            System.out.println("   • The 2026-27 season schedule hasn't been released yet");
+            System.out.println("     (Premier League usually publishes fixtures in mid-July)");
+            System.out.println("   • You haven't synced yet — run option 1 first");
+            System.out.println();
+            System.out.println("   ➡  Run option 1 again after mid-July to fetch fixtures.");
+        } else {
+            syncService.showUpcomingMatches();
+        }
+    }
+
+    // ── Option 4: Team Stats Breakdown ───────────────────────────────────────
+    private static void showTeamStats(MatchDAO matchDAO, TeamDAO teamDAO, Scanner scanner) {
+        System.out.println("\n📊 TEAM STATISTICS — " + CURRENT_SEASON);
+        System.out.println("=".repeat(60));
+
+        List<Team> allTeams = teamDAO.getAllTeams(); // sorted by ELO desc
+        if (allTeams.isEmpty()) {
+            System.out.println("   No teams found. Run option 1 to sync data first.");
+            return;
+        }
+
+        // Show team list with ELO
+        System.out.println("\n  Select a team to view their stats:\n");
+        for (int i = 0; i < allTeams.size(); i++) {
+            System.out.printf("  %2d. %-35s ELO: %d%n",
+                i + 1,
+                allTeams.get(i).getTeamName(),
+                allTeams.get(i).getEloRating());
+        }
+
+        System.out.print("\nEnter team number: ");
+        int choice;
+        try {
+            choice = Integer.parseInt(scanner.nextLine().trim()) - 1;
+        } catch (NumberFormatException e) {
+            System.out.println("Invalid input.");
+            return;
+        }
+
+        if (choice < 0 || choice >= allTeams.size()) {
+            System.out.println("Invalid selection.");
+            return;
+        }
+
+        Team team = allTeams.get(choice);
+        List<com.thepitch.model.Match> allMatches = matchDAO.getAllMatchesSafe();
+
+        // Collect all finished matches for this team, most recent first
+        List<com.thepitch.model.Match> teamMatches = new ArrayList<>();
+        for (com.thepitch.model.Match m : allMatches) {
+            if (!m.isFinished()) continue;
+            if (m.getHomeScore() == null || m.getAwayScore() == null) continue;
+            if (m.getHomeTeam().getTeamId() == team.getTeamId() ||
+                m.getAwayTeam().getTeamId() == team.getTeamId()) {
+                teamMatches.add(m);
+            }
+        }
+
+        // Sort most recent first
+        teamMatches.sort((a, b) -> {
+            if (a.getMatchDate() == null || b.getMatchDate() == null) return 0;
+            return b.getMatchDate().compareTo(a.getMatchDate());
+        });
+
+        System.out.println("\n" + "═".repeat(65));
+        System.out.println("  " + team.getTeamName().toUpperCase());
+        System.out.printf("  ELO Rating: %d | Total matches this season: %d%n",
+            team.getEloRating(), teamMatches.size());
+        System.out.println("═".repeat(65));
+
+        if (teamMatches.isEmpty()) {
+            System.out.println("  No finished matches found for this team.");
+            return;
+        }
+
+        // ── Last 10 matches ───────────────────────────────────────────────────
+        List<com.thepitch.model.Match> last10 = teamMatches.subList(0, Math.min(10, teamMatches.size()));
+
+        System.out.println("\n📋 LAST " + last10.size() + " MATCHES");
+        System.out.println("─".repeat(65));
+        System.out.printf("  %-12s %-28s %-8s %-6s%n", "Date", "Opponent", "Score", "Result");
+        System.out.println("  " + "─".repeat(60));
+
+        int wins = 0, draws = 0, losses = 0;
+        int goalsScored = 0, goalsConceded = 0;
+        StringBuilder formStr = new StringBuilder();
+
+        for (com.thepitch.model.Match m : last10) {
+            boolean isHome = m.getHomeTeam().getTeamId() == team.getTeamId();
+            String opponent = isHome ? m.getAwayTeam().getTeamName() : m.getHomeTeam().getTeamName();
+            int scored    = isHome ? m.getHomeScore() : m.getAwayScore();
+            int conceded  = isHome ? m.getAwayScore() : m.getHomeScore();
+            goalsScored   += scored;
+            goalsConceded += conceded;
+
+            String result;
+            if (scored > conceded)       { result = "W"; wins++; }
+            else if (scored == conceded) { result = "D"; draws++; }
+            else                         { result = "L"; losses++; }
+
+            formStr.append(result);
+
+            String dateStr = m.getMatchDate() != null
+                ? new SimpleDateFormat("dd MMM").format(m.getMatchDate()) : "N/A";
+            String venue = isHome ? "(H)" : "(A)";
+
+            System.out.printf("  %-12s %-24s %-4s %-8s %s%n",
+                dateStr,
+                opponent.length() > 24 ? opponent.substring(0, 22) + ".." : opponent,
+                scored + "-" + conceded,
+                venue,
+                result);
+        }
+
+        // ── Summary stats ─────────────────────────────────────────────────────
+        int played = last10.size();
+        double pointsPct = played > 0 ? (wins * 3.0 + draws) / (played * 3.0) * 100 : 0;
+
+        System.out.println("─".repeat(65));
+        System.out.println("\n📈 SUMMARY (Last " + played + " games)");
+        System.out.println("─".repeat(40));
+        System.out.printf("  Form string    : %s%n", formStr);
+        System.out.printf("  Record         : %dW  %dD  %dL%n", wins, draws, losses);
+        System.out.printf("  Points %%       : %.0f%%%n", pointsPct);
+        System.out.printf("  Goals scored   : %d  (%.1f/game)%n", goalsScored, (double) goalsScored / played);
+        System.out.printf("  Goals conceded : %d  (%.1f/game)%n", goalsConceded, (double) goalsConceded / played);
+        System.out.printf("  Goal diff      : %+d%n", goalsScored - goalsConceded);
+
+        // ── Streak ────────────────────────────────────────────────────────────
+        String streak = calculateStreak(last10, team.getTeamId());
+        System.out.printf("  Current streak : %s%n", streak);
+
+        // ── Clean sheets & BTTS ───────────────────────────────────────────────
+        int cleanSheets = 0, btts = 0, over25 = 0, failedToScore = 0;
+        for (com.thepitch.model.Match m : last10) {
+            boolean isHome = m.getHomeTeam().getTeamId() == team.getTeamId();
+            int scored   = isHome ? m.getHomeScore() : m.getAwayScore();
+            int conceded = isHome ? m.getAwayScore() : m.getHomeScore();
+            if (conceded == 0) cleanSheets++;
+            if (scored > 0 && conceded > 0) btts++;
+            if (scored + conceded > 2) over25++;
+            if (scored == 0) failedToScore++;
+        }
+
+        System.out.println();
+        System.out.printf("  Clean sheets   : %d/%d%n", cleanSheets, played);
+        System.out.printf("  Failed to score: %d/%d%n", failedToScore, played);
+        System.out.printf("  BTTS           : %d/%d%n", btts, played);
+        System.out.printf("  Over 2.5 goals : %d/%d%n", over25, played);
+
+        // ── Advanced stats from match_stats table if available ────────────────
+        com.thepitch.analyzer.TeamProfileAnalyzer profileAnalyzer = new com.thepitch.analyzer.TeamProfileAnalyzer();
+        com.thepitch.analyzer.RecentFormAnalyzer formAnalyzer = new com.thepitch.analyzer.RecentFormAnalyzer();
+
+        List<com.thepitch.model.Match> homeMatches = new ArrayList<>();
+        List<com.thepitch.model.Match> awayMatches = new ArrayList<>();
+        for (com.thepitch.model.Match m : allMatches) {
+            if (m.getHomeTeam().getTeamId() == team.getTeamId()) homeMatches.add(m);
+            else if (m.getAwayTeam().getTeamId() == team.getTeamId()) awayMatches.add(m);
+        }
+
+        TeamProfile homeProfile = profileAnalyzer.analyzeHomeProfile(team, homeMatches);
+        TeamProfile awayProfile = profileAnalyzer.analyzeAwayProfile(team, awayMatches);
+
+        if (homeProfile.dataSource != null && homeProfile.dataSource.startsWith("FBref")) {
+            System.out.println("\n📊 ADVANCED STATS (from imported CSV)");
+            System.out.println("─".repeat(40));
+            System.out.printf("  xG scored/game : %.2f (home) | %.2f (away)%n",
+                homeProfile.xG, awayProfile.xG);
+            System.out.printf("  Shots/game     : %.1f (home) | %.1f (away)%n",
+                homeProfile.shotsTotal, awayProfile.shotsTotal);
+            System.out.printf("  Shot accuracy  : %.0f%% (home) | %.0f%% (away)%n",
+                homeProfile.shotAccuracy, awayProfile.shotAccuracy);
+            System.out.printf("  Corners/game   : %.1f (home) | %.1f (away)%n",
+                homeProfile.cornersFor, awayProfile.cornersFor);
+            System.out.printf("  Yellow cards   : %.1f (home) | %.1f (away)%n",
+                homeProfile.yellowCards, awayProfile.yellowCards);
+        } else {
+            System.out.println("\n  ℹ  Import CSV (option 7) for xG, shots & corners data.");
+        }
+
+        System.out.println("\n" + "═".repeat(65));
+    }
+
+    // ── Helper: calculate current streak ─────────────────────────────────────
+    private static String calculateStreak(List<com.thepitch.model.Match> matches, int teamId) {
+        if (matches.isEmpty()) return "No data";
+
+        String lastResult = null;
+        int count = 0;
+
+        for (com.thepitch.model.Match m : matches) {
+            boolean isHome = m.getHomeTeam().getTeamId() == teamId;
+            int scored   = isHome ? m.getHomeScore() : m.getAwayScore();
+            int conceded = isHome ? m.getAwayScore() : m.getHomeScore();
+
+            String result;
+            if (scored > conceded)       result = "W";
+            else if (scored == conceded) result = "D";
+            else                         result = "L";
+
+            if (lastResult == null) {
+                lastResult = result;
+                count = 1;
+            } else if (result.equals(lastResult)) {
+                count++;
+            } else {
+                break;
+            }
+        }
+
+        switch (lastResult) {
+            case "W": return count + " game winning streak 🔥";
+            case "D": return count + " game unbeaten run";
+            case "L": return count + " game losing streak ❌";
+            default:  return "No streak";
+        }
     }
 
     // ── Option 1: Auto ELO recalc after sync ─────────────────────────────────
